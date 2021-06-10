@@ -6,6 +6,9 @@ COPY package*.json ./
 
 RUN npm install --production
 
+RUN apk --no-cache --virtual build-dependencies add python make g++ \
+    && npm install --production
+
 COPY . .
 
 RUN mkdir -p ./public ./data \
@@ -13,7 +16,8 @@ RUN mkdir -p ./public ./data \
     && npm run build \
     && cd .. \
     && mv ./client/build/* ./public \
-    && rm -rf ./client
+    && rm -rf ./client \
+    && apk del build-dependencies
 
 EXPOSE 5005
 
