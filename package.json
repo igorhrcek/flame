@@ -24,7 +24,9 @@
     "node-schedule": "^2.0.0",
     "sequelize": "^6.6.2",
     "sqlite3": "^5.0.2",
-    "ws": "^7.4.6"
+    "ws": "^7.4.6",
+    "react-scripts": "^4.0.3",
+    "react": "^17.0.2"
   },
   "devDependencies": {
     "nodemon": "^2.0.7"
