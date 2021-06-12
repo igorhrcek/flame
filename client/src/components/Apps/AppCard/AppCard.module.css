@@ -13,13 +13,15 @@
 
 .AppCardDetails {
   text-transform: uppercase;
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;;
 }
 
 .AppCardDetails h5 {
   font-size: 1em;
   font-weight: 500;
   color: var(--color-primary);
-  margin-bottom: -4px;
 }
 
 .AppCardDetails span {
