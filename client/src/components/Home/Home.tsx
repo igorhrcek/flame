@@ -1,117 +1,169 @@
-import { useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 
 // Redux
-import { connect } from 'react-redux';
-import { getApps, getCategories } from '../../store/actions';
+import { useDispatch, useSelector } from 'react-redux';
+import { State } from '../../store/reducers';
+import { bindActionCreators } from 'redux';
+import { actionCreators } from '../../store';
 
 // Typescript
-import { GlobalState } from '../../interfaces/GlobalState';
 import { App, Category } from '../../interfaces';
 
 // UI
-import Icon from '../UI/Icons/Icon/Icon';
-import { Container } from '../UI/Layout/Layout';
-import SectionHeadline from '../UI/Headlines/SectionHeadline/SectionHeadline';
-import Spinner from '../UI/Spinner/Spinner';
+import { Icon, Container, SectionHeadline, Spinner, Message } from '../UI';
 
 // CSS
 import classes from './Home.module.css';
 
 // Components
-import AppGrid from '../Apps/AppGrid/AppGrid';
-import BookmarkGrid from '../Bookmarks/BookmarkGrid/BookmarkGrid';
-import WeatherWidget from '../Widgets/WeatherWidget/WeatherWidget';
+import { AppGrid } from '../Apps/AppGrid/AppGrid';
+import { BookmarkGrid } from '../Bookmarks/BookmarkGrid/BookmarkGrid';
+import { SearchBar } from '../SearchBar/SearchBar';
+import { Header } from './Header/Header';
 
-interface ComponentProps {
-  getApps: Function;
-  getCategories: Function;
-  appsLoading: boolean;
-  apps: App[];
-  categoriesLoading: boolean;
-  categories: Category[];
-}
+// Utils
+import { escapeRegex } from '../../utility';
 
-const Home = (props: ComponentProps): JSX.Element => {
+export const Home = (): JSX.Element => {
+  const {
+    apps: { apps, loading: appsLoading },
+    bookmarks: { categories, loading: bookmarksLoading },
+    config: { config },
+    auth: { isAuthenticated },
+  } = useSelector((state: State) => state);
+
+  const dispatch = useDispatch();
+  const { getApps, getCategories } = bindActionCreators(
+    actionCreators,
+    dispatch
+  );
+
+  // Local search query
+  const [localSearch, setLocalSearch] = useState<null | string>(null);
+  const [appSearchResult, setAppSearchResult] = useState<null | App[]>(null);
+  const [bookmarkSearchResult, setBookmarkSearchResult] = useState<
+    null | Category[]
+  >(null);
+
+  // Load applications
   useEffect(() => {
-    if (props.apps.length === 0) {
-      props.getApps();
+    if (!apps.length) {
+      getApps();
     }
-  }, [props.getApps]);
+  }, []);
+
+  // Load bookmark categories
+  useEffect(() => {
+    if (!categories.length) {
+      getCategories();
+    }
+  }, []);
 
   useEffect(() => {
-    if (props.categories.length === 0) {
-      props.getCategories();
+    if (localSearch) {
+      // Search through apps
+      setAppSearchResult([
+        ...apps.filter(({ name, description }) =>
+          new RegExp(escapeRegex(localSearch), 'i').test(
+            `${name} ${description}`
+          )
+        ),
+      ]);
+
+      // Search through bookmarks
+      const category = { ...categories[0] };
+
+      category.name = 'Search Results';
+      category.bookmarks = categories
+        .map(({ bookmarks }) => bookmarks)
+        .flat()
+        .filter(({ name }) =>
+          new RegExp(escapeRegex(localSearch), 'i').test(name)
+        );
+
+      setBookmarkSearchResult([category]);
+    } else {
+      setAppSearchResult(null);
+      setBookmarkSearchResult(null);
     }
-  }, [props.getCategories]);
-
-  const dateAndTime = (): string => {
-    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-
-    const now = new Date();
-
-    return `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
-  }
-
-  const greeter = (): string => {
-    const now = new Date().getHours();
-    let msg: string;
-
-    if (now >= 18) msg = 'Good evening!';
-    else if (now >= 12) msg = 'Good afternoon!';
-    else if (now >= 6) msg = 'Good morning!';
-    else if (now >= 0) msg = 'Good night!';
-    else msg = 'Hello!';
-
-    return msg;
-  }
+  }, [localSearch]);
 
   return (
     <Container>
-      <header className={classes.Header}>
-        <p>{dateAndTime()}</p>
-        <Link to='/settings' className={classes.SettingsLink}>Go to Settings</Link>
-        <span className={classes.HeaderMain}>
-          <h1>{greeter()}</h1>
-          <WeatherWidget />
-        </span>
-      </header>
-      
-      <SectionHeadline title='Applications' link='/applications' />
-      {props.appsLoading
-        ? <Spinner />
-        : <AppGrid
-          apps={props.apps.filter((app: App) => app.isPinned)}
-          totalApps={props.apps.length}
+      {!config.hideSearch ? (
+        <SearchBar
+          setLocalSearch={setLocalSearch}
+          appSearchResult={appSearchResult}
+          bookmarkSearchResult={bookmarkSearchResult}
         />
-      }
+      ) : (
+        <div></div>
+      )}
 
-      <div className={classes.HomeSpace}></div>
+      <Header />
 
-      <SectionHeadline title='Bookmarks' link='/bookmarks' />
-      {props.categoriesLoading
-        ? <Spinner />
-        : <BookmarkGrid
-            categories={props.categories.filter((category: Category) => category.isPinned)}
-            totalCategories={props.categories.length}
-        />
-      }
+      {!isAuthenticated &&
+      !apps.some((a) => a.isPinned) &&
+      !categories.some((c) => c.isPinned) ? (
+        <Message>
+          Welcome to Flame! Go to <Link to="/settings/app">/settings</Link>,
+          login and start customizing your new homepage
+        </Message>
+      ) : (
+        <></>
+      )}
 
-      <Link to='/settings' className={classes.SettingsButton}>
-        <Icon icon='mdiCog' color='var(--color-background)' />
+      {!config.hideApps && (isAuthenticated || apps.some((a) => a.isPinned)) ? (
+        <Fragment>
+          <SectionHeadline title="Applications" link="/applications" />
+          {appsLoading ? (
+            <Spinner />
+          ) : (
+            <AppGrid
+              apps={
+                !appSearchResult
+                  ? apps.filter(({ isPinned }) => isPinned)
+                  : appSearchResult
+              }
+              totalApps={apps.length}
+              searching={!!localSearch}
+            />
+          )}
+          <div className={classes.HomeSpace}></div>
+        </Fragment>
+      ) : (
+        <></>
+      )}
+
+      {!config.hideCategories &&
+      (isAuthenticated || categories.some((c) => c.isPinned)) ? (
+        <Fragment>
+          <SectionHeadline title="Bookmarks" link="/bookmarks" />
+          {bookmarksLoading ? (
+            <Spinner />
+          ) : (
+            <BookmarkGrid
+              categories={
+                !bookmarkSearchResult
+                  ? categories.filter(
+                      ({ isPinned, bookmarks }) => isPinned && bookmarks.length
+                    )
+                  : bookmarkSearchResult
+              }
+              totalCategories={categories.length}
+              searching={!!localSearch}
+              fromHomepage={true}
+            />
+          )}
+        </Fragment>
+      ) : (
+        <></>
+      )}
+
+      <Link to="/settings" className={classes.SettingsButton}>
+        <Icon icon="mdiCog" color="var(--color-background)" />
       </Link>
     </Container>
-  )
-}
-
-const mapStateToProps = (state: GlobalState) => {
-  return {
-    appsLoading: state.app.loading,
-    apps: state.app.apps,
-    categoriesLoading: state.bookmark.loading,
-    categories: state.bookmark.categories
-  }
-}
-
-export default connect(mapStateToProps, { getApps, getCategories })(Home);
+  );
+};

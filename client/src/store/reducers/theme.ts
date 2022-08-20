@@ -1,26 +1,89 @@
-import { ActionTypes, Action } from '../actions';
+import { Action } from '../actions';
+import { ActionType } from '../action-types';
 import { Theme } from '../../interfaces/Theme';
+import { arrayPartition, parsePABToTheme } from '../../utility';
 
-export interface State {
-  theme: Theme;
+interface ThemeState {
+  activeTheme: Theme;
+  themes: Theme[];
+  userThemes: Theme[];
+  themeInEdit: Theme | null;
 }
 
-const initialState: State = {
-  theme: {
-    name: 'blues',
+const savedTheme = localStorage.theme
+  ? parsePABToTheme(localStorage.theme)
+  : parsePABToTheme('#effbff;#6ee2ff;#242b33');
+
+const initialState: ThemeState = {
+  activeTheme: {
+    name: 'main',
+    isCustom: false,
     colors: {
-      background: '#2B2C56',
-      primary: '#EFF1FC',
-      accent: '#6677EB'
-    }
-  }
-}
+      ...savedTheme,
+    },
+  },
+  themes: [],
+  userThemes: [],
+  themeInEdit: null,
+};
 
-const themeReducer = (state = initialState, action: Action) => {
+export const themeReducer = (
+  state: ThemeState = initialState,
+  action: Action
+): ThemeState => {
   switch (action.type) {
-    case ActionTypes.setTheme: return { theme: action.payload };
-    default: return state;
-  }
-}
+    case ActionType.setTheme: {
+      return {
+        ...state,
+        activeTheme: {
+          ...state.activeTheme,
+          colors: action.payload,
+        },
+      };
+    }
 
-export default themeReducer;
+    case ActionType.fetchThemes: {
+      const [themes, userThemes] = arrayPartition<Theme>(
+        action.payload,
+        (e) => !e.isCustom
+      );
+
+      return {
+        ...state,
+        themes,
+        userThemes,
+      };
+    }
+
+    case ActionType.addTheme: {
+      return {
+        ...state,
+        userThemes: [...state.userThemes, action.payload],
+      };
+    }
+
+    case ActionType.deleteTheme: {
+      return {
+        ...state,
+        userThemes: action.payload,
+      };
+    }
+
+    case ActionType.editTheme: {
+      return {
+        ...state,
+        themeInEdit: action.payload,
+      };
+    }
+
+    case ActionType.updateTheme: {
+      return {
+        ...state,
+        userThemes: action.payload,
+      };
+    }
+
+    default:
+      return state;
+  }
+};

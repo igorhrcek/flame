@@ -1,173 +1,188 @@
 import { useState, ChangeEvent, useEffect, FormEvent } from 'react';
-import { connect } from 'react-redux';
 import axios from 'axios';
-import { ApiResponse, Config, NewNotification, Weather } from '../../../interfaces';
 
-import InputGroup from '../../UI/Forms/InputGroup/InputGroup';
-import Button from '../../UI/Buttons/Button/Button';
-import { createNotification } from '../../../store/actions';
+// Redux
+import { useDispatch, useSelector } from 'react-redux';
+import { bindActionCreators } from 'redux';
+import { actionCreators } from '../../../store';
+import { State } from '../../../store/reducers';
 
-interface FormState {
-  WEATHER_API_KEY: string;
-  lat: number;
-  long: number;
-  isCelsius: number;
-}
+// Typescript
+import { ApiResponse, Weather, WeatherForm } from '../../../interfaces';
 
-interface ComponentProps {
-  createNotification: (notification: NewNotification) => void;
-}
+// UI
+import { InputGroup, Button, SettingsHeadline } from '../../UI';
 
-const WeatherSettings = (props: ComponentProps): JSX.Element => {
-  const [formData, setFormData] = useState<FormState>({
-    WEATHER_API_KEY: '',
-    lat: 0,
-    long: 0,
-    isCelsius: 1
-  })
+// Utils
+import { inputHandler, weatherSettingsTemplate } from '../../../utility';
 
-  const inputChangeHandler = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>, isNumber?: boolean) => {
-    let value: string | number = e.target.value;
+export const WeatherSettings = (): JSX.Element => {
+  const { loading, config } = useSelector((state: State) => state.config);
 
-    if (isNumber) {
-      value = parseFloat(value);
-    }
+  const dispatch = useDispatch();
+  const { createNotification, updateConfig } = bindActionCreators(
+    actionCreators,
+    dispatch
+  );
 
-    setFormData({
-      ...formData,
-      [e.target.name]: value
-    })
-  }
+  // Initial state
+  const [formData, setFormData] = useState<WeatherForm>(
+    weatherSettingsTemplate
+  );
 
+  // Get config
   useEffect(() => {
-    axios.get<ApiResponse<Config[]>>('/api/config?keys=WEATHER_API_KEY,lat,long,isCelsius')
-      .then(data => {
-        let tmpFormData = { ...formData };
+    setFormData({
+      ...config,
+    });
+  }, [loading]);
 
-        data.data.data.forEach((config: Config) => {
-          let value: string | number = config.value;
-          if (config.valueType === 'number') {
-            value = parseFloat(value);
-          }
-
-          tmpFormData = {
-            ...tmpFormData,
-            [config.key]: value
-          }
-        })
-
-        setFormData(tmpFormData);
-      })
-      .catch(err => console.log(err));
-  }, []);
-
-  const formSubmitHandler = (e: FormEvent) => {
+  // Form handler
+  const formSubmitHandler = async (e: FormEvent) => {
     e.preventDefault();
 
     // Check for api key input
     if ((formData.lat || formData.long) && !formData.WEATHER_API_KEY) {
-      props.createNotification({
+      createNotification({
         title: 'Warning',
-        message: 'API Key is missing. Weather Module will NOT work'
-      })
+        message: 'API key is missing. Weather Module will NOT work',
+      });
     }
 
     // Save settings
-    axios.put<ApiResponse<{}>>('/api/config', formData)
-      .then(() => {
-        props.createNotification({
-          title: 'Success',
-          message: 'Settings updated'
-        })
+    await updateConfig(formData);
 
-        // Update weather with new settings
-        axios.get<ApiResponse<Weather>>('/api/weather/update')
-          .then(() => {
-            props.createNotification({
-              title: 'Success',
-              message: 'Weather updated'
-            })
-          })
-          .catch((err) => {
-            props.createNotification({
-              title: 'Error',
-              message: err.response.data.error
-            })
-          });
+    // Update weather
+    axios
+      .get<ApiResponse<Weather>>('/api/weather/update')
+      .then(() => {
+        createNotification({
+          title: 'Success',
+          message: 'Weather updated',
+        });
       })
-      .catch(err => console.log(err));
-    
-    // set localStorage
-    localStorage.setItem('isCelsius', JSON.stringify(parseInt(`${formData.isCelsius}`) === 1))
-  }
+      .catch((err) => {
+        createNotification({
+          title: 'Error',
+          message: err.response.data.error,
+        });
+      });
+  };
+
+  // Input handler
+  const inputChangeHandler = (
+    e: ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    options?: { isNumber?: boolean; isBool?: boolean }
+  ) => {
+    inputHandler<WeatherForm>({
+      e,
+      options,
+      setStateHandler: setFormData,
+      state: formData,
+    });
+  };
+
+  // Get user location
+  const getLocation = () => {
+    window.navigator.geolocation.getCurrentPosition(
+      ({ coords: { latitude, longitude } }) => {
+        setFormData({
+          ...formData,
+          lat: latitude,
+          long: longitude,
+        });
+      }
+    );
+  };
 
   return (
     <form onSubmit={(e) => formSubmitHandler(e)}>
+      <SettingsHeadline text="API" />
+      {/* API KEY */}
       <InputGroup>
-        <label htmlFor='WEATHER_API_KEY'>API Key</label>
+        <label htmlFor="WEATHER_API_KEY">API key</label>
         <input
-          type='text'
-          id='WEATHER_API_KEY'
-          name='WEATHER_API_KEY'
-          placeholder='secret'
+          type="text"
+          id="WEATHER_API_KEY"
+          name="WEATHER_API_KEY"
+          placeholder="secret"
           value={formData.WEATHER_API_KEY}
           onChange={(e) => inputChangeHandler(e)}
         />
         <span>
           Using
-          <a
-            href='https://www.weatherapi.com/pricing.aspx'
-            target='blank'>
-            {' '}Weather API
+          <a href="https://www.weatherapi.com/pricing.aspx" target="blank">
+            {' '}
+            Weather API
           </a>
           . Key is required for weather module to work.
         </span>
       </InputGroup>
+
+      <SettingsHeadline text="Location" />
+      {/* LAT */}
       <InputGroup>
-        <label htmlFor='lat'>Location Latitude</label>
+        <label htmlFor="lat">Latitude</label>
         <input
-          type='number'
-          id='lat'
-          name='lat'
-          placeholder='52.22'
+          type="number"
+          id="lat"
+          name="lat"
+          placeholder="52.22"
           value={formData.lat}
-          onChange={(e) => inputChangeHandler(e, true)}
+          onChange={(e) => inputChangeHandler(e, { isNumber: true })}
+          step="any"
+          lang="en-150"
         />
-        <span>
-          You can use
-          <a
-            href='https://www.latlong.net/convert-address-to-lat-long.html'
-            target='blank'>
-            {' '}latlong.net
-          </a>
+        <span onClick={getLocation}>
+          <a href="#">Click to get current location</a>
         </span>
       </InputGroup>
+
+      {/* LONG */}
       <InputGroup>
-        <label htmlFor='long'>Location Longitude</label>
+        <label htmlFor="long">Longitude</label>
         <input
-          type='number'
-          id='long'
-          name='long'
-          placeholder='21.01'
+          type="number"
+          id="long"
+          name="long"
+          placeholder="21.01"
           value={formData.long}
-          onChange={(e) => inputChangeHandler(e, true)}
+          onChange={(e) => inputChangeHandler(e, { isNumber: true })}
+          step="any"
+          lang="en-150"
         />
       </InputGroup>
+
+      <SettingsHeadline text="Other" />
+      {/* TEMPERATURE */}
       <InputGroup>
-        <label htmlFor='isCelsius'>Temperature Unit</label>
+        <label htmlFor="isCelsius">Temperature unit</label>
         <select
-          id='isCelsius'
-          name='isCelsius'
-          onChange={(e) => inputChangeHandler(e, true)}
-          value={formData.isCelsius}
+          id="isCelsius"
+          name="isCelsius"
+          onChange={(e) => inputChangeHandler(e, { isBool: true })}
+          value={formData.isCelsius ? 1 : 0}
         >
           <option value={1}>Celsius</option>
           <option value={0}>Fahrenheit</option>
         </select>
       </InputGroup>
-    <Button>Save changes</Button>
-    </form>
-  )
-}
 
-export default connect(null, { createNotification })(WeatherSettings);
+      {/* WEATHER DATA */}
+      <InputGroup>
+        <label htmlFor="weatherData">Additional weather data</label>
+        <select
+          id="weatherData"
+          name="weatherData"
+          value={formData.weatherData}
+          onChange={(e) => inputChangeHandler(e)}
+        >
+          <option value="cloud">Cloud coverage</option>
+          <option value="humidity">Humidity</option>
+        </select>
+      </InputGroup>
+
+      <Button>Save changes</Button>
+    </form>
+  );
+};

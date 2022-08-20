@@ -1,29 +1,32 @@
-import { Dispatch } from 'redux';
-import { themes } from '../../components/Themer/themes.json';
-import { Theme } from '../../interfaces/Theme';
-import { ActionTypes } from './actionTypes';
+import { ActionType } from '../action-types';
+import { Theme, ThemeColors } from '../../interfaces';
 
 export interface SetThemeAction {
-  type: ActionTypes.setTheme,
-  payload: Theme
+  type: ActionType.setTheme;
+  payload: ThemeColors;
 }
 
-export const setTheme = (themeName: string) => (dispatch: Dispatch) => {
-  const theme = themes.find((theme: Theme) => theme.name === themeName);
-
-  if (theme) {
-    localStorage.setItem('theme', themeName);
-    loadTheme(theme);
-
-    dispatch<SetThemeAction>({
-      type: ActionTypes.setTheme,
-      payload: theme
-    })
-  }
+export interface FetchThemesAction {
+  type: ActionType.fetchThemes;
+  payload: Theme[];
 }
 
-export const loadTheme = (theme: Theme): void => {
-  for (const [key, value] of Object.entries(theme.colors)) {
-    document.body.style.setProperty(`--color-${key}`, value);
-  }
+export interface AddThemeAction {
+  type: ActionType.addTheme;
+  payload: Theme;
+}
+
+export interface DeleteThemeAction {
+  type: ActionType.deleteTheme;
+  payload: Theme[];
+}
+
+export interface UpdateThemeAction {
+  type: ActionType.updateTheme;
+  payload: Theme[];
+}
+
+export interface EditThemeAction {
+  type: ActionType.editTheme;
+  payload: Theme | null;
 }

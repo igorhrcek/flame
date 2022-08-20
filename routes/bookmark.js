@@ -1,23 +1,29 @@
 const express = require('express');
 const router = express.Router();
 
+// middleware
+const { upload, auth, requireAuth } = require('../middleware');
+
 const {
   createBookmark,
-  getBookmarks,
-  getBookmark,
+  getAllBookmarks,
+  getSingleBookmark,
   updateBookmark,
-  deleteBookmark
-} = require('../controllers/bookmark');
+  deleteBookmark,
+  reorderBookmarks,
+} = require('../controllers/bookmarks');
 
 router
   .route('/')
-  .post(createBookmark)
-  .get(getBookmarks);
+  .post(auth, requireAuth, upload, createBookmark)
+  .get(auth, getAllBookmarks);
 
 router
   .route('/:id')
-  .get(getBookmark)
-  .put(updateBookmark)
-  .delete(deleteBookmark);
+  .get(auth, getSingleBookmark)
+  .put(auth, requireAuth, upload, updateBookmark)
+  .delete(auth, requireAuth, deleteBookmark);
+
+router.route('/0/reorder').put(auth, requireAuth, reorderBookmarks);
 
 module.exports = router;

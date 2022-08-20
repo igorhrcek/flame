@@ -1,23 +1,29 @@
 const express = require('express');
 const router = express.Router();
 
+// middleware
+const { auth, requireAuth, upload } = require('../middleware');
+
 const {
   createApp,
-  getApps,
-  getApp,
+  getAllApps,
+  getSingleApp,
   updateApp,
-  deleteApp
+  deleteApp,
+  reorderApps,
 } = require('../controllers/apps');
 
 router
   .route('/')
-  .post(createApp)
-  .get(getApps);
+  .post(auth, requireAuth, upload, createApp)
+  .get(auth, getAllApps);
 
 router
   .route('/:id')
-  .get(getApp)
-  .put(updateApp)
-  .delete(deleteApp);
+  .get(auth, getSingleApp)
+  .put(auth, requireAuth, upload, updateApp)
+  .delete(auth, requireAuth, deleteApp);
+
+router.route('/0/reorder').put(auth, requireAuth, reorderApps);
 
 module.exports = router;

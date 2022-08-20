@@ -1,14 +1,14 @@
 import { Model } from '.';
 
-export interface App extends Model {
-  name: string;
-  url: string;
-  icon: string;
-  isPinned: boolean;
-}
-
 export interface NewApp {
   name: string;
   url: string;
   icon: string;
+  isPublic: boolean;
+  description: string;
+}
+
+export interface App extends Model, NewApp {
+  orderId: number;
+  isPinned: boolean;
 }
